@@ -41,6 +41,9 @@
 #include "State.h"
 #include "ValveTanh.h"
 #include "WindkesselBC.h"
+#include "Autoregulation.h"
+#include "VarResistanceBC.h"
+#include "VarResistanceVessel.h"
 #include "debug.h"
 
 /**

@@ -32,7 +32,10 @@ Model::Model() {
       {"ChamberElastanceInductor", block_factory<ChamberElastanceInductor>()},
       {"BloodVesselCRL", block_factory<BloodVesselCRL>()},
       {"PiecewiseValve", block_factory<PiecewiseValve>()},
-      {"LinearElastanceChamber", block_factory<LinearElastanceChamber>()}};
+      {"LinearElastanceChamber", block_factory<LinearElastanceChamber>()},
+      {"Autoregulation", block_factory<Autoregulation>()},
+      {"VarResistanceBC", block_factory<VarResistanceBC>()},
+      {"VarResistanceVessel", block_factory<VarResistanceVessel>()}};
 }
 
 Model::~Model() {}

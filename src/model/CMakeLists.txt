@@ -33,6 +33,9 @@ set(CXXSRCS
   WindkesselBC.cpp
   LinearElastanceChamber.cpp
   PiecewiseValve.cpp
+  Autoregulation.cpp
+  VarResistanceBC.cpp
+  VarResistanceVessel.cpp
 )
 
 set(HDRS 
@@ -64,6 +67,9 @@ set(HDRS
   WindkesselBC.h
   LinearElastanceChamber.h
   PiecewiseValve.h
+  Autoregulation.h
+  VarResistanceBC.h
+  VarResistanceVessel.h
 )
 
 add_library(${lib} OBJECT ${CXXSRCS} ${HDRS})
