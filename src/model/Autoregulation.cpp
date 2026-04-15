@@ -21,6 +21,8 @@ void Autoregulation::update_constant(SparseSystem &system,
   const double Gmeta    = parameters[global_param_ids[7]];
   const double TAUmeta  = parameters[global_param_ids[8]];
   (void)parameters[global_param_ids[9]];  // Pd used in update_solution
+  const double lower_frac = parameters[global_param_ids[10]];  // default 0.70
+  const double upper_frac = parameters[global_param_ids[11]];  // default 1.30
 
   // --------------------
   // One-time precompute
@@ -32,9 +34,9 @@ void Autoregulation::update_constant(SparseSystem &system,
 
     R4_  = 0.15 * R;
 
-    R1L_ = 0.70 * R1_0;  R1U_ = 1.30 * R1_0;
-    R2L_ = 0.70 * R2_0;  R2U_ = 1.30 * R2_0;
-    R3L_ = 0.70 * R3_0;  R3U_ = 1.30 * R3_0;
+    R1L_ = lower_frac * R1_0;  R1U_ = upper_frac * R1_0;
+    R2L_ = lower_frac * R2_0;  R2U_ = upper_frac * R2_0;
+    R3L_ = lower_frac * R3_0;  R3U_ = upper_frac * R3_0;
 
     Kar1_ = std::pow(0.02, 4) * R1_0;
     Kar2_ = std::pow(0.01, 4) * R2_0;

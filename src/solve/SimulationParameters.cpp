@@ -454,7 +454,9 @@ void create_external_coupling(
                                                  "BloodVessel",
                                                  "Autoregulation",
                                                  "VarResistanceBC",
-                                                 "VarResistanceVessel"};
+                                                 "VarResistanceVessel",
+                                                 "AutoregulationRCR",
+                                                 "AutoregulationCoro"};                          
       if (std::find(std::begin(possible_types), std::end(possible_types),
                     connected_type) == std::end(possible_types)) {
         throw std::runtime_error(

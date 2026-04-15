@@ -35,7 +35,9 @@ enum class BlockType {
   open_loop_coronary_var_res_bc = 19,
   autoregulation = 20,
   var_resistance_bc = 21,
-  var_resistance_vessel = 22
+  var_resistance_vessel = 22,
+  autoregulation_rcr = 23,
+  autoregulation_coro = 24
 
 };
 

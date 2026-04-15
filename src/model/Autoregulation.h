@@ -67,7 +67,9 @@ class Autoregulation : public Block {
                {"taumyo", InputParameter()},
                {"Gmeta", InputParameter()},
                {"taumeta", InputParameter()},
-               {"Pd", InputParameter()}}) {}
+               {"Pd", InputParameter()},
+               {"lower_frac", InputParameter(true, false, true, 0.70)},
+               {"upper_frac", InputParameter(true, false, true, 1.30)}}) {}
 
   void setup_dofs(DOFHandler &dofhandler);
 

@@ -36,6 +36,8 @@ set(CXXSRCS
   Autoregulation.cpp
   VarResistanceBC.cpp
   VarResistanceVessel.cpp
+  AutoregulationRCR.cpp
+  AutoregulationCoro.cpp
 )
 
 set(HDRS 
@@ -70,6 +72,8 @@ set(HDRS
   Autoregulation.h
   VarResistanceBC.h
   VarResistanceVessel.h
+  AutoregulationRCR.h
+  AutoregulationCoro.h
 )
 
 add_library(${lib} OBJECT ${CXXSRCS} ${HDRS})
