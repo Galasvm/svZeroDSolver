@@ -89,11 +89,9 @@ void AutoregulationCoro::update_constant(
   // One-time precompute of autoregulation constants
   // ------------------------------------------------------------------
   if (!initialized_) {
-    const double R1_0 = 0.10 * Ra2;
-    const double R2_0 = 0.35 * Ra2;
-    const double R3_0 = 0.40 * Ra2;
-
-    R4_  = 0.15 * Ra2;
+    const double R1_0 = 0.15 * Ra2;
+    const double R2_0 = 0.40 * Ra2;
+    const double R3_0 = 0.45 * Ra2;
 
     R1L_ = lower_frac * R1_0;  R1U_ = upper_frac * R1_0;
     R2L_ = lower_frac * R2_0;  R2U_ = upper_frac * R2_0;
@@ -235,7 +233,7 @@ void AutoregulationCoro::update_solution(
   const double R1   = (R1L_ + R1U_ * eS)   / (1.0 + eS);
   const double R2   = (R2L_ + R2U_ * eM)   / (1.0 + eM);
   const double R3   = (R3L_ + R3U_ * eMet) / (1.0 + eMet);
-  const double Rtot = R1 + R2 + R3 + R4_;
+  const double Rtot = R1 + R2 + R3;
 
   // dRi/dAi (sigmoid derivative)
   const double dR1_dAs   = (R1U_ - R1L_) * eS   / ((1.0 + eS)   * (1.0 + eS));
