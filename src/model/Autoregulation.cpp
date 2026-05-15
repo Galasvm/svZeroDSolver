@@ -28,11 +28,11 @@ void Autoregulation::update_constant(SparseSystem &system,
   // One-time precompute
   // --------------------
   if (!initialized_) {
-    const double R1_0 = 0.10 * R;
-    const double R2_0 = 0.35 * R;
-    const double R3_0 = 0.40 * R;
+    const double R1_0 = 0.05 * R;
+    const double R2_0 = 0.40 * R;
+    const double R3_0 = 0.45 * R;
 
-    R4_  = 0.15 * R;
+    R4_  = 0.10 * R;
 
     R1L_ = lower_frac * R1_0;  R1U_ = upper_frac * R1_0;
     R2L_ = lower_frac * R2_0;  R2U_ = upper_frac * R2_0;

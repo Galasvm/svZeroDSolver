@@ -40,7 +40,8 @@ Model::Model() {
       {"VarResistanceBC", block_factory<VarResistanceBC>()},
       {"VarResistanceVessel", block_factory<VarResistanceVessel>()},
       {"AutoregulationRCR", block_factory<AutoregulationRCR>()},
-      {"AutoregulationCoro", block_factory<AutoregulationCoro>()}};
+      {"AutoregulationCoro", block_factory<AutoregulationCoro>()},
+      {"AutoregulationRCR2", block_factory<AutoregulationRCR2>()}};
 }
 
 Model::~Model() {}

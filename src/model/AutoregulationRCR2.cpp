@@ -1,18 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) Stanford University, The Regents of the
 // University of California, and others. SPDX-License-Identifier: BSD-3-Clause
-#include "AutoregulationRCR.h"
+#include "AutoregulationRCR2.h"
 
-void AutoregulationRCR::setup_dofs(DOFHandler &dofhandler) {
-  // 11 equations; 10 internal variables
-  // Variable order: [0]=Pin [1]=Qin [2]=Ashear [3]=Amyo [4]=Ameta
-  //                 [5]=xshear [6]=xmyo [7]=xmeta [8]=T [9]=WSS [10]=Pc [11]=q_out
-  Block::setup_dofs_(dofhandler, 11,
+void AutoregulationRCR2::setup_dofs(DOFHandler &dofhandler) {
+  Block::setup_dofs_(dofhandler, 10,
                      {"Ashear", "Amyo", "Ameta", "xshear", "xmyo", "xmeta",
-                      "T", "WSS", "Pc", "q_out"});
+                      "T", "WSS", "Pc"});
 }
 
-void AutoregulationRCR::update_constant(SparseSystem &system,
-                                        std::vector<double> &parameters) {
+void AutoregulationRCR2::update_constant(SparseSystem &system,
+                                         std::vector<double> &parameters) {
   const double R        = parameters[global_param_ids[0]];
   const double Qt       = parameters[global_param_ids[1]];
   const double Pt       = parameters[global_param_ids[2]];
@@ -56,7 +53,7 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
   system.F.coeffRef(global_eqn_ids[0], global_var_ids[1])  = -Rp;
   system.F.coeffRef(global_eqn_ids[0], global_var_ids[10]) = -1.0;
 
-  // Eqn (1): Rtot*q_out - Pc + Pd = 0  (nonlinear Rtot in update_solution)
+  // Eqn (1): Rtot*q_out - Pc + Pd = 0
   system.F.coeffRef(global_eqn_ids[1], global_var_ids[10]) = -1.0;
 
   // Eqn (2): T - Pavg*(Kar2/R2)^0.25 = 0
@@ -83,13 +80,10 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
   system.F.coeffRef(global_eqn_ids[8], global_var_ids[8])  = -1.0 / Tt_;
 
   // Eqn (9): TAUmeta*dxmeta/dt + xmeta - q_out/Qt + 1 = 0
+  // q_out = Qin - C*dPc/dt, so this splits into F (Qin) and E (dPc/dt) terms
   system.F.coeffRef(global_eqn_ids[9], global_var_ids[7])  =  1.0;
-  system.F.coeffRef(global_eqn_ids[9], global_var_ids[11]) = -1.0 / Qt;
-
-  // Eqn (10): q_out - Qin + C*dPc/dt = 0  (defines microvascular flow)
-  system.F.coeffRef(global_eqn_ids[10], global_var_ids[11]) =  1.0;
-  system.F.coeffRef(global_eqn_ids[10], global_var_ids[1])  = -1.0;
-  system.E.coeffRef(global_eqn_ids[10], global_var_ids[10]) =  C_cap;
+  system.F.coeffRef(global_eqn_ids[9], global_var_ids[1])  = -1.0 / Qt;
+  system.E.coeffRef(global_eqn_ids[9], global_var_ids[10]) =  C_cap / Qt;
 
   // E matrix: autoregulation time-derivative terms
   system.E.coeffRef(global_eqn_ids[4], global_var_ids[2])  =  1.0;
@@ -105,7 +99,7 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
   system.C.coeffRef(global_eqn_ids[9]) = 1.0;
 }
 
-void AutoregulationRCR::update_solution(
+void AutoregulationRCR2::update_solution(
     SparseSystem &system, std::vector<double> &parameters,
     const Eigen::Matrix<double, Eigen::Dynamic, 1> &y,
     const Eigen::Matrix<double, Eigen::Dynamic, 1> &dy) {
@@ -115,9 +109,10 @@ void AutoregulationRCR::update_solution(
   const double Am    = y[global_var_ids[3]];
   const double Amet  = y[global_var_ids[4]];
   const double p_c   = y[global_var_ids[10]];
-  const double q_out = y[global_var_ids[11]];
+  const double dp_c  = dy[global_var_ids[10]];
 
   const double Pd    = parameters[global_param_ids[9]];
+  const double C_cap = parameters[global_param_ids[11]];
 
   const double eS   = std::exp(As);
   const double eM   = std::exp(Am);
@@ -132,26 +127,31 @@ void AutoregulationRCR::update_solution(
   const double dR2_dAm   = (R2U_ - R2L_) * eM   / ((1.0 + eM)   * (1.0 + eM));
   const double dR3_dAmet = (R3U_ - R3L_) * eMet / ((1.0 + eMet) * (1.0 + eMet));
 
+  const double q_out = q_in - C_cap * dp_c;
+
   // Eqn (1): Rtot*q_out - Pc + Pd = 0
   system.C(global_eqn_ids[1]) = Rtot * q_out + Pd;
-  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[11]) =  Rtot;
-  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[2])  =  dR1_dAs   * q_out;
-  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[3])  =  dR2_dAm   * q_out;
-  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[4])  =  dR3_dAmet * q_out;
+  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[1]) =  Rtot;
+  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[2]) =  dR1_dAs   * q_out;
+  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[3]) =  dR2_dAm   * q_out;
+  system.dC_dy.coeffRef(global_eqn_ids[1], global_var_ids[4]) =  dR3_dAmet * q_out;
+  system.dC_dydot.coeffRef(global_eqn_ids[1], global_var_ids[10]) = -Rtot * C_cap;
 
   // Eqn (2): T - Pavg*(Kar2/R2)^0.25 = 0,  Pavg = Pc - q_out*(R1 + 0.5*R2)
   const double Pavg = p_c - q_out * (R1 + 0.5 * R2);
   const double A    = std::pow(Kar2_ / R2, 0.25);
   system.C(global_eqn_ids[2]) = -Pavg * A;
   system.dC_dy.coeffRef(global_eqn_ids[2], global_var_ids[10]) = -A;
-  system.dC_dy.coeffRef(global_eqn_ids[2], global_var_ids[11]) =  (R1 + 0.5 * R2) * A;
+  system.dC_dy.coeffRef(global_eqn_ids[2], global_var_ids[1])  =  (R1 + 0.5 * R2) * A;
   system.dC_dy.coeffRef(global_eqn_ids[2], global_var_ids[2])  =  q_out * dR1_dAs * A;
   system.dC_dy.coeffRef(global_eqn_ids[2], global_var_ids[3])  =
       (0.5 * q_out * A * dR2_dAm) + (Pavg * 0.25 * A * dR2_dAm / R2);
+  system.dC_dydot.coeffRef(global_eqn_ids[2], global_var_ids[10]) =  (R1 + 0.5 * R2) * A * C_cap;
 
   // Eqn (3): WSS - q_out*(R1/Kar1)^0.75 = 0
   const double B = std::pow(R1 / Kar1_, 0.75);
   system.C(global_eqn_ids[3]) = -q_out * B;
-  system.dC_dy.coeffRef(global_eqn_ids[3], global_var_ids[11]) = -B;
+  system.dC_dy.coeffRef(global_eqn_ids[3], global_var_ids[1])  = -B;
   system.dC_dy.coeffRef(global_eqn_ids[3], global_var_ids[2])  = -q_out * 0.75 * B * dR1_dAs / R1;
+  system.dC_dydot.coeffRef(global_eqn_ids[3], global_var_ids[10]) =  B * C_cap;
 }

@@ -39,6 +39,7 @@ set(CXXSRCS
   VarResistanceBC.cpp
   VarResistanceVessel.cpp
   AutoregulationRCR.cpp
+  AutoregulationRCR2.cpp
   AutoregulationCoro.cpp
 )
 
@@ -77,6 +78,7 @@ set(HDRS
   VarResistanceBC.h
   VarResistanceVessel.h
   AutoregulationRCR.h
+  AutoregulationRCR2.h
   AutoregulationCoro.h
 )
 

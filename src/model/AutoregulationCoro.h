@@ -106,14 +106,12 @@ class AutoregulationCoro : public Block {
 
   void update_constant(SparseSystem &system, std::vector<double> &parameters);
 
-  void update_time(SparseSystem &system, std::vector<double> &parameters);
-
   void update_solution(SparseSystem &system, std::vector<double> &parameters,
                        const Eigen::Matrix<double, Eigen::Dynamic, 1> &y,
                        const Eigen::Matrix<double, Eigen::Dynamic, 1> &dy);
 
-  // F=16, E=9, D=11
-  TripletsContributions num_triplets{16, 9, 11};
+  // F=21, E=10, D=13
+  TripletsContributions num_triplets{21, 10, 13};
 
  private:
   bool initialized_ = false;
@@ -121,12 +119,15 @@ class AutoregulationCoro : public Block {
   double P_Cim_0 = 0.0;  ///< Pressure proximal to Cim at initial state
   double Pim_0   = 0.0;  ///< Pim at initial state
 
-  double R1L_ = 0.0, R1U_ = 0.0;
-  double R2L_ = 0.0, R2U_ = 0.0;
-  double R3L_ = 0.0, R3U_ = 0.0;
-  double R4_  = 0.0;
+  // Ra1 shear segment (70% of Ra1 input): sigmoid bounds
+  double Ra1SL_ = 0.0, Ra1SU_ = 0.0;
+  double Ra1_static_ = 0.0;  ///< Fixed 30% of Ra1 input
 
-  double Kar1_ = 0.0;
+  // Ra2 regulated segments
+  double R2L_ = 0.0, R2U_ = 0.0;  ///< Myogenic (45% of Ra2)
+  double R3L_ = 0.0, R3U_ = 0.0;  ///< Metabolic (55% of Ra2)
+
+  double Kar1_shear_ = 0.0;  ///< Geometric constant for Ra1_shear WSS
   double Kar2_ = 0.0;
   double WSSt_ = 0.0;
   double Tt_   = 0.0;
