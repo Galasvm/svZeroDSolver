@@ -1,9 +1,5 @@
 // SPDX-FileCopyrightText: Copyright (c) Stanford University, The Regents of the
 // University of California, and others. SPDX-License-Identifier: BSD-3-Clause
-/**
- * @file AutoregulationCoro.h
- * @brief model::AutoregulationCoro header
- */
 #ifndef SVZERODSOLVER_MODEL_AUTOREGULATIONCORO_HPP_
 #define SVZERODSOLVER_MODEL_AUTOREGULATIONCORO_HPP_
 
@@ -12,67 +8,33 @@
 #include "SparseSystem.h"
 
 /**
- * @brief Open-loop coronary boundary condition with autoregulated microvascular
- * resistance Ra2 (shear + myogenic + metabolic control).
+ * @brief Open-loop coronary BC with autoregulated proximal (Ra) and
+ * microvascular (Ra2) resistances.
  *
- * Extends the standard open-loop coronary BC (Kim et al.) by replacing the
- * fixed microvascular resistance Ra2 with a regulated Rtot composed of four
- * resistors in series (R1, R2, R3, R4), each controlled by sigmoid activation
- * functions driven by shear stress, myogenic tone, and metabolic demand.
+ * Circuit:
+ *   Pin -> Ra1_static(30%) -> Ra1_shear(16%,As) -> Ra1_myo(54%,Am)
+ *       -> [Ca] -> Ra2(100%,Amet) -> [Cim,Pim] -> Rv -> Pv
  *
- * \f[
- * \begin{circuitikz} \draw
- * node[left] {$Q_{in}$} [-latex] (0,0) -- (0.8,0);
- * \draw (1,0) node[anchor=south]{$P_{in}$}
- * to [R, l=$R_{a1}$, *-*] (3,0)
- * to [R, l=$R_{tot}(t)$, -] (5,0)
- * node[anchor=south]{$P_{cim}$}
- * to [R, l=$R_{v1}$, *-*] (7,0)
- * node[anchor=south]{$P_{v}$}
- * (5,0) to [C, l=$C_{im}$, -*] (5,-1.5)
- * node[left]{$P_{im}$}
- * (3,0) to [C, l=$C_a$, -*] (3,-1.5)
- * node[left]{$P_a=0$};
- * \end{circuitikz}
- * \f]
- *
- * ### Governing equations
- *
- * Coronary equations (same structure as OpenLoopCoronaryBC, with Ra2 → Rtot):
- *  (0) Cim*Rv*Qin - Vim - Cim*Rv*dVim/dt - Ca*Cim*Rv*dPin/dt + Ra*Ca*Cim*Rv*dQin/dt
- *      + Cim*(-Pim + Pv + Pim_0 - P_Cim_0) = 0
- *  (1) Cim*Rv*Pin - Cim*Rv*Ra*Qin - Rv*Vim - Cim*Rv*Pim_offset
- *      + Rtot*(-Vim + Cim*(Pv - Pim_offset) - Cim*Rv*dVim/dt) = 0
- *
- * Autoregulation equations (same as Autoregulation block):
- *  (2) T   - Pavg*(Kar2/R2)^0.25 = 0,  Pavg = Pin - Qin*(R1 + 0.5*R2)
- *  (3) WSS - Qin*(R1/Kar1)^0.75  = 0
- *  (4) dAshear/dt + Gshear*xshear = 0
- *  (5) dAmyo/dt   - Gmyo*xmyo    = 0
- *  (6) dAmeta/dt  - Gmeta*xmeta  = 0
- *  (7) TAUshear*dxshear/dt + xshear - WSS/WSSt + 1 = 0
- *  (8) TAUmyo*dxmyo/dt     + xmyo   - T/Tt     + 1 = 0
- *  (9) TAUmeta*dxmeta/dt   + xmeta  - Qin/Qt   + 1 = 0
+ * Ra (= Ra1_static + Ra1_shear + Ra1_myo) sits before Ca.
+ * Ra2 (fully metabolic) sits after Ca.
  *
  * Local unknowns:
- *   y^e = [Pin, Qin, Vim, Ashear, Amyo, Ameta, xshear, xmyo, xmeta, T, WSS]
+ *   y^e = [Pin, Qin, Vim, Ashear, Amyo, Ameta, xshear, xmyo, xmeta,
+ *          T, WSS, Pa, q_micro]
  *
- * ### Parameters
- *
- * * `0` Ra1:      Proximal small artery resistance (fixed)
- * * `1` Rv1:      Venous resistance (fixed)
- * * `2` Ca:       Small artery capacitance
- * * `3` Cc:       Intramyocardial capacitance (Cim)
- * * `4` Pim:      Intramyocardial pressure (time-varying, paired with t)
- * * `5` P_v:      Venous pressure
- * * `6` Ra2:      Baseline regulated microvascular resistance
- * * `7` Qt:       Target flow
- * * `8` Pt:       Target pressure at Pin
- * * `9` Gshear,  `10` taushear
- * * `11` Gmyo,   `12` taumyo
- * * `13` Gmeta,  `14` taumeta
- * * `15` lower_frac (optional, default 0.70) lower bound fraction for R1_0,R2_0,R3_0
- * * `16` upper_frac (optional, default 1.30) upper bound fraction for R1_0,R2_0,R3_0
+ * Equations:
+ *  (0-1)  Coronary hydraulics (Kim et al., Ra_eff = Ra1_static+Ra1_shear+Ra1_myo)
+ *  (2)    T   - Pavg*(Kar_myo/Ra1_myo)^0.25 = 0
+ *             Pavg = Pa + 0.5*Ra1_myo*Qin  (average across Ra1_myo)
+ *  (3)    WSS - Qin*(Ra1_shear/Kar1_shear)^0.75 = 0
+ *  (4)    dAshear/dt + Gshear*xshear = 0
+ *  (5)    dAmyo/dt   - Gmyo*xmyo     = 0
+ *  (6)    dAmeta/dt  - Gmeta*xmeta   = 0
+ *  (7)    TAUshear*dxshear/dt + xshear - WSS/WSSt  + 1 = 0
+ *  (8)    TAUmyo*dxmyo/dt     + xmyo   - T/Tt      + 1 = 0
+ *  (9)    TAUmeta*dxmeta/dt   + xmeta  - q_micro/Qt + 1 = 0
+ *  (10)   Pa - Pin + Ra1_static*Qin + Ra1_shear*Qin + Ra1_myo*Qin = 0
+ *  (11)   q_micro - Qin + Ca*dPa/dt = 0
  */
 class AutoregulationCoro : public Block {
  public:
@@ -96,8 +58,8 @@ class AutoregulationCoro : public Block {
                {"taumyo", InputParameter()},
                {"Gmeta", InputParameter()},
                {"taumeta", InputParameter()},
-               {"lower_frac", InputParameter(true, false, true, 0.70)},
-               {"upper_frac", InputParameter(true, false, true, 1.30)}}) {}
+               {"lower_frac", InputParameter(true, false, true, 0.03)},
+               {"upper_frac", InputParameter(true, false, true, 1.97)}}) {}
 
   void setup_dofs(DOFHandler &dofhandler);
 
@@ -110,25 +72,22 @@ class AutoregulationCoro : public Block {
                        const Eigen::Matrix<double, Eigen::Dynamic, 1> &y,
                        const Eigen::Matrix<double, Eigen::Dynamic, 1> &dy);
 
-  // F=21, E=10, D=13
-  TripletsContributions num_triplets{21, 10, 13};
+  // F=21, E=10, D=15
+  TripletsContributions num_triplets{21, 10, 15};
 
  private:
   bool initialized_ = false;
 
-  double P_Cim_0 = 0.0;  ///< Pressure proximal to Cim at initial state
-  double Pim_0   = 0.0;  ///< Pim at initial state
+  double P_Cim_0 = 0.0;
+  double Pim_0   = 0.0;
 
-  // Ra1 shear segment (70% of Ra1 input): sigmoid bounds
-  double Ra1SL_ = 0.0, Ra1SU_ = 0.0;
-  double Ra1_static_ = 0.0;  ///< Fixed 30% of Ra1 input
+  double Ra1_static_ = 0.0;          ///< Fixed 30% of Ra
+  double Ra1SL_ = 0.0, Ra1SU_ = 0.0; ///< Ra1_shear sigmoid bounds (16% of Ra)
+  double Ra1ML_ = 0.0, Ra1MU_ = 0.0; ///< Ra1_myo  sigmoid bounds (54% of Ra)
+  double Ra2L_  = 0.0, Ra2U_  = 0.0; ///< Ra2 metabolic sigmoid bounds (100% of Ra2)
 
-  // Ra2 regulated segments
-  double R2L_ = 0.0, R2U_ = 0.0;  ///< Myogenic (45% of Ra2)
-  double R3L_ = 0.0, R3U_ = 0.0;  ///< Metabolic (55% of Ra2)
-
-  double Kar1_shear_ = 0.0;  ///< Geometric constant for Ra1_shear WSS
-  double Kar2_ = 0.0;
+  double Kar1_shear_ = 0.0; ///< Geometric constant for shear WSS (Ra1_shear)
+  double Kar_myo_    = 0.0; ///< Geometric constant for myogenic tension (Ra1_myo)
   double WSSt_ = 0.0;
   double Tt_   = 0.0;
 };
