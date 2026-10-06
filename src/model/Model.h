@@ -48,7 +48,7 @@
 #include "VarResistanceVessel.h"
 #include "AutoregulationRCR.h"
 #include "AutoregulationCoro.h"
-#include "AutoregulationRCR2.h"
+#include "VarRCRBC.h"
 #include "debug.h"
 
 /**

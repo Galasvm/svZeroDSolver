@@ -18,6 +18,10 @@
  * Ra (= Ra1_static + Ra1_shear + Ra1_myo) sits before Ca.
  * Ra2 (fully metabolic) sits after Ca.
  *
+ * Ra1_shear(Ashear) is one-sided: the plain sigmoid is smoothly clamped (via
+ * a sharp tanh gate) to its baseline for Ashear >= 0, so shear can dilate
+ * below baseline but never constrict past it.
+ *
  * Local unknowns:
  *   y^e = [Pin, Qin, Vim, Ashear, Amyo, Ameta, xshear, xmyo, xmeta,
  *          T, WSS, Pa, q_micro]
@@ -82,6 +86,7 @@ class AutoregulationCoro : public Block {
   double Pim_0   = 0.0;
 
   double Ra1_static_ = 0.0;          ///< Fixed 30% of Ra
+  double Ra1_shear_0_ = 0.0;         ///< Baseline Ra1_shear; one-sided gate ceiling
   double Ra1SL_ = 0.0, Ra1SU_ = 0.0; ///< Ra1_shear sigmoid bounds (16% of Ra)
   double Ra1ML_ = 0.0, Ra1MU_ = 0.0; ///< Ra1_myo  sigmoid bounds (54% of Ra)
   double Ra2L_  = 0.0, Ra2U_  = 0.0; ///< Ra2 metabolic sigmoid bounds (100% of Ra2)
@@ -90,6 +95,11 @@ class AutoregulationCoro : public Block {
   double Kar_myo_    = 0.0; ///< Geometric constant for myogenic tension (Ra1_myo)
   double WSSt_ = 0.0;
   double Tt_   = 0.0;
+
+  /// Sigmoid re-centering factor exp(-C) so that A=0 maps to the baseline
+  /// resistance even when lower_frac/upper_frac are asymmetric about 1.
+  /// k_ = (1-lower_frac)/(upper_frac-1); k_ = 1 recovers the symmetric case.
+  double k_ = 1.0;
 };
 
 #endif  // SVZERODSOLVER_MODEL_AUTOREGULATIONCORONARYBC_HPP_

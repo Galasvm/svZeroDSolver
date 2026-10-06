@@ -40,7 +40,7 @@ enum class BlockType {
   var_resistance_vessel = 24,
   autoregulation_rcr = 25,
   autoregulation_coro = 26,
-  autoregulation_rcr2 = 27
+  var_rcr_bc = 28
 };
 
 /**

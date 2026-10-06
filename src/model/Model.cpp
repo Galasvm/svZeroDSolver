@@ -41,7 +41,7 @@ Model::Model() {
       {"VarResistanceVessel", block_factory<VarResistanceVessel>()},
       {"AutoregulationRCR", block_factory<AutoregulationRCR>()},
       {"AutoregulationCoro", block_factory<AutoregulationCoro>()},
-      {"AutoregulationRCR2", block_factory<AutoregulationRCR2>()}};
+      {"VarRCRBC", block_factory<VarRCRBC>()}};
 }
 
 Model::~Model() {}
@@ -240,7 +240,8 @@ void Model::to_steady() {
   for (size_t i = 0; i < get_num_blocks(true); i++) {
     get_block(i)->steady = true;
     if ((block_types[i] == BlockType::windkessel_bc) ||
-        (block_types[i] == BlockType::closed_loop_rcr_bc)) {
+        (block_types[i] == BlockType::closed_loop_rcr_bc) ||
+        (block_types[i] == BlockType::var_rcr_bc)) {
       int param_id_capacitance = blocks[i]->global_param_ids[1];
       double value = parameters[param_id_capacitance].get(0.0);
       param_value_cache.insert({param_id_capacitance, value});

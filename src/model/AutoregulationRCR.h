@@ -23,6 +23,10 @@
  * Local unknown ordering:
  *   y^e = [ Pin, Qin, Ashear, Amyo, Ameta, xshear, xmyo, xmeta, T, WSS, Pc ]
  *
+ * R1(Ashear) is one-sided: the plain sigmoid is smoothly clamped (via a
+ * sharp tanh gate) to the baseline R1_0 for Ashear >= 0, so shear can
+ * dilate below baseline but never constrict past it.
+ *
  * Governing equations:
  *  (0) Pin - Pc - Rp*Qin = 0
  *  (1) Rtot*(Qin - C*dPc/dt) - Pc + Pd = 0
@@ -30,7 +34,7 @@
  *  (2) T   - Pavg*(Kar2/R2(Amyo))^0.25 = 0
  *      where Pavg = Pc - Qin*(R1 + 0.5*R2)
  *  (3) WSS - Qin*(R1/Kar1)^0.75 = 0
- *  (4) dAshear/dt - Gshear*xshear = 0
+ *  (4) dAshear/dt + Gshear*xshear = 0
  *  (5) dAmyo/dt   - Gmyo*xmyo     = 0
  *  (6) dAmeta/dt  - Gmeta*xmeta   = 0
  *  (7) TAUshear*dxshear/dt + xshear - WSS/WSSt + 1 = 0
@@ -87,11 +91,12 @@ class AutoregulationRCR : public Block {
   double R2L_ = 0.0, R2U_ = 0.0;
   double R3L_ = 0.0, R3U_ = 0.0;
   double R4_  = 0.0;
-
+  double R1_0_ = 0.0;
   double Kar1_ = 0.0;
   double Kar2_ = 0.0;
   double WSSt_ = 0.0;
   double Tt_   = 0.0;
+  double k_ = 1.0;
 };
 
 #endif  // SVZERODSOLVER_MODEL_AUTOREGULATIONRCR_HPP_

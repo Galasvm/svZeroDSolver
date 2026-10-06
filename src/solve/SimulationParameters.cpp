@@ -374,7 +374,8 @@ void create_boundary_conditions(Model& model, const nlohmann::json& config,
     // Keep track of closed loop blocks
     Block* block = model.get_block(block_id);
 
-    if (block->block_type == BlockType::windkessel_bc) {
+    if ((block->block_type == BlockType::windkessel_bc) ||
+        (block->block_type == BlockType::var_rcr_bc)) {
       model.update_has_windkessel_bc(true);
       double Rd = bc_values["Rd"];
       double C = bc_values["C"];
@@ -456,7 +457,8 @@ void create_external_coupling(
                                                  "VarResistanceBC",
                                                  "VarResistanceVessel",
                                                  "AutoregulationRCR",
-                                                 "AutoregulationCoro"};                          
+                                                 "AutoregulationCoro",
+                                                 "VarRCRBC"};
       if (std::find(std::begin(possible_types), std::end(possible_types),
                     connected_type) == std::end(possible_types)) {
         throw std::runtime_error(

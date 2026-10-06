@@ -22,7 +22,6 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
   const double TAUmyo   = parameters[global_param_ids[6]];
   const double Gmeta    = parameters[global_param_ids[7]];
   const double TAUmeta  = parameters[global_param_ids[8]];
-  (void)parameters[global_param_ids[9]];  // Pd — used in update_solution
   const double Rp       = parameters[global_param_ids[10]];
   const double C_cap    = parameters[global_param_ids[11]];
   const double lower_frac = parameters[global_param_ids[12]];
@@ -33,7 +32,8 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
     const double R2_0 = 0.40 * R;
     const double R3_0 = 0.45 * R;
 
-    R4_  = 0.10 * R;
+    R4_   = 0.10 * R;
+    R1_0_ = R1_0;
 
     R1L_ = lower_frac * R1_0;  R1U_ = upper_frac * R1_0;
     R2L_ = lower_frac * R2_0;  R2U_ = upper_frac * R2_0;
@@ -48,50 +48,31 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
     const double P2_0  = P1_0 - Qt * R2_0;
     Tt_ = 0.5 * (P1_0 + P2_0) * std::pow(Kar2_ / R2_0, 0.25);
 
+    // Sigmoid re-centering: k_ = exp(-C), C = -ln[(1-lower_frac)/(upper_frac-1)]
+    k_ = (1.0 - lower_frac) / (upper_frac - 1.0);
+
     initialized_ = true;
   }
 
-  // Eqn (0): Pin - Rp*Qin - Pc = 0
   system.F.coeffRef(global_eqn_ids[0], global_var_ids[0])  =  1.0;
   system.F.coeffRef(global_eqn_ids[0], global_var_ids[1])  = -Rp;
   system.F.coeffRef(global_eqn_ids[0], global_var_ids[10]) = -1.0;
-
-  // Eqn (1): Rtot*q_out - Pc + Pd = 0  (nonlinear Rtot in update_solution)
   system.F.coeffRef(global_eqn_ids[1], global_var_ids[10]) = -1.0;
-
-  // Eqn (2): T - Pavg*(Kar2/R2)^0.25 = 0
   system.F.coeffRef(global_eqn_ids[2], global_var_ids[8])  =  1.0;
-
-  // Eqn (3): WSS - q_out*(R1/Kar1)^0.75 = 0
   system.F.coeffRef(global_eqn_ids[3], global_var_ids[9])  =  1.0;
-
-  // Eqn (4): dAshear/dt + Gshear*xshear = 0
   system.F.coeffRef(global_eqn_ids[4], global_var_ids[5])  =  Gshear;
-
-  // Eqn (5): dAmyo/dt - Gmyo*xmyo = 0
   system.F.coeffRef(global_eqn_ids[5], global_var_ids[6])  = -Gmyo;
-
-  // Eqn (6): dAmeta/dt - Gmeta*xmeta = 0
   system.F.coeffRef(global_eqn_ids[6], global_var_ids[7])  = -Gmeta;
-
-  // Eqn (7): TAUshear*dxshear/dt + xshear - WSS/WSSt + 1 = 0
   system.F.coeffRef(global_eqn_ids[7], global_var_ids[5])  =  1.0;
   system.F.coeffRef(global_eqn_ids[7], global_var_ids[9])  = -1.0 / WSSt_;
-
-  // Eqn (8): TAUmyo*dxmyo/dt + xmyo - T/Tt + 1 = 0
   system.F.coeffRef(global_eqn_ids[8], global_var_ids[6])  =  1.0;
   system.F.coeffRef(global_eqn_ids[8], global_var_ids[8])  = -1.0 / Tt_;
-
-  // Eqn (9): TAUmeta*dxmeta/dt + xmeta - q_out/Qt + 1 = 0
   system.F.coeffRef(global_eqn_ids[9], global_var_ids[7])  =  1.0;
   system.F.coeffRef(global_eqn_ids[9], global_var_ids[11]) = -1.0 / Qt;
-
-  // Eqn (10): q_out - Qin + C*dPc/dt = 0  (defines microvascular flow)
   system.F.coeffRef(global_eqn_ids[10], global_var_ids[11]) =  1.0;
   system.F.coeffRef(global_eqn_ids[10], global_var_ids[1])  = -1.0;
   system.E.coeffRef(global_eqn_ids[10], global_var_ids[10]) =  C_cap;
 
-  // E matrix: autoregulation time-derivative terms
   system.E.coeffRef(global_eqn_ids[4], global_var_ids[2])  =  1.0;
   system.E.coeffRef(global_eqn_ids[5], global_var_ids[3])  =  1.0;
   system.E.coeffRef(global_eqn_ids[6], global_var_ids[4])  =  1.0;
@@ -99,7 +80,6 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
   system.E.coeffRef(global_eqn_ids[8], global_var_ids[6])  =  TAUmyo;
   system.E.coeffRef(global_eqn_ids[9], global_var_ids[7])  =  TAUmeta;
 
-  // Constant C offsets for eqns 7–9
   system.C.coeffRef(global_eqn_ids[7]) = 1.0;
   system.C.coeffRef(global_eqn_ids[8]) = 1.0;
   system.C.coeffRef(global_eqn_ids[9]) = 1.0;
@@ -119,16 +99,23 @@ void AutoregulationRCR::update_solution(
 
   const double Pd    = parameters[global_param_ids[9]];
 
-  const double eS   = std::exp(As);
-  const double eM   = std::exp(Am);
-  const double eMet = std::exp(Amet);
+  const double eS   = k_ * std::exp(As);
+  const double eM   = k_ * std::exp(Am);
+  const double eMet = k_ * std::exp(Amet);
 
-  const double R1   = (R1L_ + R1U_ * eS)   / (1.0 + eS);
+  // One-sided shear: tanh gate pins R1 at R1_0 for As >= 0 (dilation only)
+  const double R1_sig = (R1L_ + R1U_ * eS) / (1.0 + eS);
+  const double th     = std::tanh(50.0 * As);
+  const double gate   = 0.5 * (1.0 - th);
+  const double dgate  = -25.0 * (1.0 - th * th);
+
+  const double R1   = gate * R1_sig + (1.0 - gate) * R1_0_;
   const double R2   = (R2L_ + R2U_ * eM)   / (1.0 + eM);
   const double R3   = (R3L_ + R3U_ * eMet) / (1.0 + eMet);
   const double Rtot = R1 + R2 + R3 + R4_;
 
-  const double dR1_dAs   = (R1U_ - R1L_) * eS   / ((1.0 + eS)   * (1.0 + eS));
+  const double dR1_dAs   = dgate * (R1_sig - R1_0_) +
+                           gate * (R1U_ - R1L_) * eS / ((1.0 + eS) * (1.0 + eS));
   const double dR2_dAm   = (R2U_ - R2L_) * eM   / ((1.0 + eM)   * (1.0 + eM));
   const double dR3_dAmet = (R3U_ - R3L_) * eMet / ((1.0 + eMet) * (1.0 + eMet));
 
