@@ -22,17 +22,36 @@ void Autoregulation::update_constant(SparseSystem &system,
   const double TAUmyo   = parameters[global_param_ids[6]];
   const double Gmeta    = parameters[global_param_ids[7]];
   const double TAUmeta  = parameters[global_param_ids[8]];
-  const double lower_frac = parameters[global_param_ids[10]];
-  const double upper_frac = parameters[global_param_ids[11]];
+  // Limits on the TOTAL resistance (fraction of R) when all mechanisms saturate
+  const double Rtot_min_frac = parameters[global_param_ids[10]];
+  const double Rtot_max_frac = parameters[global_param_ids[11]];
 
   if (!initialized_) {
-    const double R1_0 = 0.20 * R;
-    const double R2_0 = 0.20 * R;
-    const double R3_0 = 0.45 * R;
+    // Baseline split of R (must sum to 1)
+    const double f1 = 0.20, f2 = 0.25, f3 = 0.45, f4 = 0.10;
+    // const double f1 = 0.15, f2 = 0.30, f3 = 0.55, f4 = 0.00;
 
-    R4_   = 0.05 * R;
+    const double R1_0 = f1 * R;
+    const double R2_0 = f2 * R;
+    const double R3_0 = f3 * R;
+
+    R4_   = f4 * R;
     R1_0_ = R1_0;
 
+    // Per-resistor bounds that make the total hit Rtot_min/max_frac at
+    // saturation. Dilation: R1,R2,R3 all at lower bound. Constriction: R2,R3
+    // at upper bound, R1 capped at R1_0 (one-sided shear).
+    if (Rtot_min_frac <= f4 || Rtot_min_frac >= 1.0 || Rtot_max_frac <= 1.0) {
+      throw std::runtime_error(
+          "Autoregulation: need " + std::to_string(f4) +
+          " < lower_frac < 1 < upper_frac (lower_frac and upper_frac are "
+          "limits on the total resistance as a fraction of R)");
+    }
+    // THIS IS THE CORRECT, BUT IM TRYING SOMETHING
+    // const double lower_frac = (Rtot_min_frac - f4) / (1.0 - f4);
+    // const double upper_frac = (Rtot_max_frac - f4 - f1) / (1.0 - f4 - f1);
+    const double lower_frac = (Rtot_min_frac - f4 - f1) / (1.0 - f4 - f1);
+    const double upper_frac = (Rtot_max_frac - f4 - f1) / (1.0 - f4 - f1);
     R1L_ = lower_frac * R1_0;  R1U_ = upper_frac * R1_0;
     R2L_ = lower_frac * R2_0;  R2U_ = upper_frac * R2_0;
     R3L_ = lower_frac * R3_0;  R3U_ = upper_frac * R3_0;

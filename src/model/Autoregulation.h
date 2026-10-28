@@ -48,9 +48,16 @@
  *  - Gshear, TAUshear
  *  - Gmyo,   TAUmyo
  *  - Gmeta,  TAUmeta
+ *  - lower_frac, upper_frac  limits on the TOTAL resistance (fraction of R)
+ *      approached when all mechanisms saturate (default 0.70, 1.30).
+ *      Requires 0.10 < lower_frac < 1 < upper_frac (0.10 = static R4 share).
+ *
+ * Baseline split: R1_0 = 0.20R, R2_0 = 0.25R, R3_0 = 0.45R, R4 = 0.10R.
  *
  * One-time constants computed from parameters:
- *  - R1L,R1U,R2L,R2U,R3L,R3U,R4
+ *  - per-resistor bounds R1L,R1U,R2L,R2U,R3L,R3U from the total limits:
+ *      l = (lower_frac - 0.10) / 0.90          (R1,R2,R3 all at lower bound)
+ *      u = (upper_frac - 0.30) / 0.70          (R2,R3 at upper; R1 capped at R1_0)
  *  - Kar1 = 0.02^4 * R1_0
  *  - Kar2 = 0.01^4 * R2_0
  *  - WSSt = Qt / 0.02^3

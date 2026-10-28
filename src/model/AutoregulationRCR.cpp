@@ -24,16 +24,47 @@ void AutoregulationRCR::update_constant(SparseSystem &system,
   const double TAUmeta  = parameters[global_param_ids[8]];
   const double Rp       = parameters[global_param_ids[10]];
   const double C_cap    = parameters[global_param_ids[11]];
-  const double lower_frac = parameters[global_param_ids[12]];
-  const double upper_frac = parameters[global_param_ids[13]];
+  // Limits on the TOTAL outlet resistance (fraction of Rp + Rd) when all
+  // mechanisms saturate.
+  const double Rtot_min_frac = parameters[global_param_ids[12]];
+  const double Rtot_max_frac = parameters[global_param_ids[13]];
 
   if (!initialized_) {
-    const double R1_0 = 0.05 * R;
-    const double R2_0 = 0.40 * R;
-    const double R3_0 = 0.45 * R;
+    // Baseline split of Rd (must sum to 1)
+    const double f1 = 0.20, f2 = 0.25, f3 = 0.45, f4 = 0.10;
 
-    R4_   = 0.10 * R;
+    const double R1_0 = f1 * R;
+    const double R2_0 = f2 * R;
+    const double R3_0 = f3 * R;
+
+    R4_   = f4 * R;
     R1_0_ = R1_0;
+
+    // Per-resistor bounds that make the whole-outlet total (Rp + Rd) hit
+    // Rtot_min/max_frac at saturation. Rp and R4 are fixed.
+    // Dilation: R1,R2,R3 all at lower bound. Constriction: R2,R3 at upper
+    // bound, R1 capped at R1_0 (one-sided shear).
+    const double Rtot0 = Rp + R;
+    const double fixed = Rp + f4 * R;
+    // const double Rmin_floor = fixed / Rtot0;
+    // const double lower_frac =
+    //     (Rtot_min_frac * Rtot0 - fixed) / ((1.0 - f4) * R);
+    const double upper_frac =
+        (Rtot_max_frac * Rtot0 - fixed - f1 * R) / ((1.0 - f4 - f1) * R);
+    // THIS IS THE CORRECT, BUT IM TRYING SOMETHING
+    // Dilation floor with R1 held at R1_0 (R2,R3 at lower bound):
+    const double Rmin_floor = (fixed + f1 * R) / Rtot0;
+    const double lower_frac =
+        (Rtot_min_frac * Rtot0 - fixed - f1 * R) / ((1.0 - f4 - f1) * R);
+
+    if (Rtot_min_frac <= Rmin_floor || Rtot_min_frac >= 1.0 ||
+        Rtot_max_frac <= 1.0) {
+      throw std::runtime_error(
+          "AutoregulationRCR: need " + std::to_string(Rmin_floor) +
+          " < lower_frac < 1 < upper_frac (lower_frac and upper_frac are "
+          "limits on the total outlet resistance as a fraction of Rp + Rd)");
+    }
+
 
     R1L_ = lower_frac * R1_0;  R1U_ = upper_frac * R1_0;
     R2L_ = lower_frac * R2_0;  R2U_ = upper_frac * R2_0;

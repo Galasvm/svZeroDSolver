@@ -44,15 +44,45 @@ void AutoregulationCoro::update_constant(
   auto TAUmyo   = parameters[global_param_ids[12]];   // taumyo
   auto Gmeta    = parameters[global_param_ids[13]];   // Gmeta
   auto TAUmeta  = parameters[global_param_ids[14]];   // taumeta
-  auto lower_frac = parameters[global_param_ids[15]]; // lower_frac
-  auto upper_frac = parameters[global_param_ids[16]]; // upper_frac
+  // Limits on the TOTAL outlet resistance (fraction of Ra1 + Ra2 + Rv) when
+  // all mechanisms saturate.
+  auto Rtot_min_frac = parameters[global_param_ids[15]]; // lower_frac
+  auto Rtot_max_frac = parameters[global_param_ids[16]]; // upper_frac
 
   if (!initialized_) {
-    // Ra split: 30% static, 16% shear-regulated, 54% myo-regulated (all before Ca)
-    Ra1_static_ = 0.30 * Ra;
-    auto Ra1_shear_0 = 0.16 * Ra;
-    auto Ra1_myo_0   = 0.54 * Ra;
+    Ra1_static_ = 0.0 * Ra;
+    auto Ra1_shear_0 = 0.3125 * Ra; //to make Ra 10% (assuming 32, 52,16)
+    auto Ra1_myo_0   = 0.6875 * Ra;
+    // auto Ra1_shear_0 = 0.125 * Ra; //to make Ra 4%
+    // auto Ra1_myo_0   = 0.875 * Ra;
     Ra1_shear_0_ = Ra1_shear_0;
+
+    // Per-resistor bounds that make the whole-outlet total (Ra1 + Ra2 + Rv)
+    // hit Rtot_min/max_frac at saturation. Ra1_static and Rv are fixed.
+    // Dilation: Ra1_shear, Ra1_myo, Ra2 all at lower bound. Constriction:
+    // Ra1_myo, Ra2 at upper bound, Ra1_shear capped at baseline (one-sided).
+    auto Rtot0 = Ra + Ra2 + Rv;
+    auto fixed = Ra1_static_ + Rv;
+    auto Rmin_floor = fixed / Rtot0;
+    // auto lower_frac =
+    //     (Rtot_min_frac * Rtot0 - fixed) / (Ra1_shear_0 + Ra1_myo_0 + Ra2);
+    // auto upper_frac =
+    //     (Rtot_max_frac * Rtot0 - fixed - Ra1_shear_0) / (Ra1_myo_0 + Ra2);
+  
+    auto lower_frac =
+        (Rtot_min_frac * Rtot0 - fixed-0.06) / (Ra1_shear_0 + Ra1_myo_0 + Ra2+0.06);
+    auto upper_frac =
+        (Rtot_max_frac * Rtot0 - fixed - Ra1_shear_0) / (Ra1_myo_0 + Ra2);
+
+    if (Rtot_min_frac <= Rmin_floor || Rtot_min_frac >= 1.0 ||
+        Rtot_max_frac <= 1.0) {
+      throw std::runtime_error(
+          "AutoregulationCoro: need " + std::to_string(Rmin_floor) +
+          " < lower_frac < 1 < upper_frac (lower_frac and upper_frac are "
+          "limits on the total outlet resistance as a fraction of "
+          "Ra1 + Ra2 + Rv1)");
+    }
+
     Ra1SL_ = lower_frac * Ra1_shear_0;  Ra1SU_ = upper_frac * Ra1_shear_0;
     Ra1ML_ = lower_frac * Ra1_myo_0;    Ra1MU_ = upper_frac * Ra1_myo_0;
 
@@ -176,9 +206,7 @@ void AutoregulationCoro::update_solution(
 
   auto pim_offset = Pim + P_Cim_0 - Pim_0;
 
-  // ------------------------------------------------------------------
-  // Coronary eqns 0 & 1: Ra1_shear + Ra1_myo are both nonlinear parts of Ra_eff
-  // ------------------------------------------------------------------
+
   if (steady) {
     system.C(global_eqn_ids[1]) = Pv + (Ra1_shear + Ra1_myo + Rtot) * q_in;
 

@@ -12,11 +12,18 @@
  * microvascular (Ra2) resistances.
  *
  * Circuit:
- *   Pin -> Ra1_static(30%) -> Ra1_shear(16%,As) -> Ra1_myo(54%,Am)
+ *   Pin -> Ra1_static(0%) -> Ra1_shear(16%,As) -> Ra1_myo(84%,Am)
  *       -> [Ca] -> Ra2(100%,Amet) -> [Cim,Pim] -> Rv -> Pv
  *
  * Ra (= Ra1_static + Ra1_shear + Ra1_myo) sits before Ca.
  * Ra2 (fully metabolic) sits after Ca.
+ *
+ * lower_frac, upper_frac: limits on the TOTAL outlet resistance (fraction of
+ * Ra1 + Ra2 + Rv1) approached when the mechanisms saturate (default 0.70,
+ * 1.30). Ra1_static and Rv1 are fixed; lower_frac must exceed their share.
+ * Per-resistor bounds (Rt0 = Ra1 + Ra2 + Rv1, fixed = Ra1_static + Rv1):
+ *   l = (lower_frac*Rt0 - fixed) / (Ra1_shear_0 + Ra1_myo_0 + Ra2)
+ *   u = (upper_frac*Rt0 - fixed - Ra1_shear_0) / (Ra1_myo_0 + Ra2)
  *
  * Ra1_shear(Ashear) is one-sided: the plain sigmoid is smoothly clamped (via
  * a sharp tanh gate) to its baseline for Ashear >= 0, so shear can dilate
@@ -62,8 +69,8 @@ class AutoregulationCoro : public Block {
                {"taumyo", InputParameter()},
                {"Gmeta", InputParameter()},
                {"taumeta", InputParameter()},
-               {"lower_frac", InputParameter(true, false, true, 0.03)},
-               {"upper_frac", InputParameter(true, false, true, 1.97)}}) {}
+               {"lower_frac", InputParameter(true, false, true, 0.70)},
+               {"upper_frac", InputParameter(true, false, true, 1.30)}}) {}
 
   void setup_dofs(DOFHandler &dofhandler);
 

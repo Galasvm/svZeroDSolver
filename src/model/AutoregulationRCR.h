@@ -51,6 +51,14 @@
  *  - Gmeta,  taumeta
  *  - Rp       proximal (fixed) resistance
  *  - C        capacitance
+ *  - lower_frac, upper_frac  limits on the TOTAL outlet resistance (fraction
+ *      of Rp + Rd) approached when the mechanisms saturate (default 0.70,
+ *      1.30). Rp and R4 are fixed; lower_frac must exceed their share.
+ *
+ * Baseline split of Rd: R1_0 = 0.05Rd, R2_0 = 0.40Rd, R3_0 = 0.45Rd, R4 = 0.10Rd.
+ * Per-resistor bounds from the total limits (Rt0 = Rp + Rd):
+ *   l = (lower_frac*Rt0 - Rp - 0.10Rd) / (0.90Rd)   (R1,R2,R3 all at lower bound)
+ *   u = (upper_frac*Rt0 - Rp - 0.15Rd) / (0.85Rd)   (R2,R3 at upper; R1 capped at R1_0)
  */
 class AutoregulationRCR : public Block {
  public:
